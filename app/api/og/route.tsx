@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { renderImage } from '@/lib/render'
-import { TemplateProps, OutputSize, RenderOptions } from '@/lib/types'
+import { TemplateProps, OutputSize, RenderOptions, TemplateId, TEMPLATES } from '@/lib/types'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
+
+const VALID_TEMPLATES = new Set<TemplateId>(TEMPLATES.map((t) => t.id))
+const VALID_SIZES = new Set<OutputSize>(['og', 'twitter', 'instagram'])
+const VALID_FORMATS = new Set(['png', 'jpeg'])
+
+function getClientIp(req: NextRequest): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
+    req.headers.get('x-real-ip') ??
+    '127.0.0.1'
+  )
+}
 
 function parseFeatures(raw: string | null): string[] | undefined {
   if (!raw) return undefined
@@ -69,24 +82,94 @@ function buildTemplateProps(params: URLSearchParams): TemplateProps {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
 
-  const templateProps = buildTemplateProps(searchParams)
-  const size = (searchParams.get('size') ?? 'og') as OutputSize
-  const format = (searchParams.get('format') ?? 'png') as 'png' | 'jpeg'
+  // ── Rate limiting ──────────────────────────────────────────────────────────
+  const ip = getClientIp(req)
+  const apiKey = searchParams.get('key') ?? req.headers.get('x-api-key')
+  const rl = checkRateLimit(ip, apiKey)
 
+  if (!rl.allowed) {
+    const retryAfterSec = Math.ceil(rl.retryAfterMs / 1000)
+    return NextResponse.json(
+      {
+        error: 'Rate limit exceeded',
+        message: `Free tier allows 10 requests per day. Resets in ${Math.ceil(rl.retryAfterMs / 3600000)}h. Upgrade to Pro for unlimited requests: https://ogpix.app/pricing`,
+        retryAfter: retryAfterSec,
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(retryAfterSec),
+          'X-RateLimit-Limit': '10',
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': String(Math.ceil((Date.now() + rl.retryAfterMs) / 1000)),
+        },
+      }
+    )
+  }
+
+  // ── Validation ─────────────────────────────────────────────────────────────
+  const template = (searchParams.get('template') ?? 'generic') as TemplateId
+  if (!VALID_TEMPLATES.has(template)) {
+    const validList = TEMPLATES.map((t) => t.id)
+    return NextResponse.json(
+      {
+        error: 'Invalid template',
+        message: `Unknown template "${template}". Valid options: ${validList.join(', ')}`,
+        validTemplates: validList,
+      },
+      { status: 400 }
+    )
+  }
+
+  // Title is required for most templates (fallbacks are used, but warn on generic/blog)
+  const title = searchParams.get('title')
+  if (!title && (template === 'generic' || template === 'blog-cover')) {
+    return NextResponse.json(
+      { error: 'Missing required parameter', message: '`title` is required for this template.' },
+      { status: 400 }
+    )
+  }
+
+  const sizeParam = searchParams.get('size') ?? 'og'
+  if (!VALID_SIZES.has(sizeParam as OutputSize)) {
+    return NextResponse.json(
+      {
+        error: 'Invalid size',
+        message: `Unknown size "${sizeParam}". Valid options: og, twitter, instagram`,
+      },
+      { status: 400 }
+    )
+  }
+
+  const formatParam = searchParams.get('format') ?? 'png'
+  if (!VALID_FORMATS.has(formatParam)) {
+    return NextResponse.json(
+      { error: 'Invalid format', message: 'Valid options: png, jpeg' },
+      { status: 400 }
+    )
+  }
+
+  const size = sizeParam as OutputSize
+  const format = formatParam as 'png' | 'jpeg'
+  const templateProps = buildTemplateProps(searchParams)
   const options: RenderOptions = { size, format, quality: 90 }
 
   try {
     const buffer = await renderImage(templateProps, options)
     const contentType = format === 'jpeg' ? 'image/jpeg' : 'image/png'
+    const remaining = rl.tier === 'free' ? String(rl.remaining) : 'unlimited'
 
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=3600, s-maxage=86400',
+        'X-RateLimit-Limit': rl.tier === 'free' ? '10' : 'unlimited',
+        'X-RateLimit-Remaining': remaining,
+        'X-RateLimit-Tier': rl.tier,
       },
     })
   } catch (err) {
     console.error('OG render error:', err)
-    return NextResponse.json({ error: 'Failed to render image' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to render image', message: String(err) }, { status: 500 })
   }
 }
