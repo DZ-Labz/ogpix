@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2026-03-25.dahlia' as const })
 
   const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
+    mode: 'payment',
     line_items: [{ price: STRIPE_PRO_PRICE_ID, quantity: 1 }],
     customer_email: email,
     success_url: `${APP_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,

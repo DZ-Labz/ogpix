@@ -26,9 +26,9 @@ const PRICING = [
   },
   {
     name: 'Pro',
-    price: '$9',
-    period: 'per month',
-    features: ['Unlimited images', 'API access', 'All 6 templates', 'PNG + JPEG output', 'Priority support', 'Stripe Customer Portal'],
+    price: '£1',
+    period: 'one-time',
+    features: ['Unlimited images', 'API access', 'All 6 templates', 'PNG + JPEG output', 'Priority support'],
     cta: 'Upgrade to Pro',
     href: '/api/checkout',
     highlighted: true,

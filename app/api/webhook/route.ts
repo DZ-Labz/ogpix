@@ -9,7 +9,7 @@ const DB_PATH = join(process.cwd(), 'data', 'customers.json')
 interface Customer {
   email: string
   stripeCustomerId: string
-  stripeSubscriptionId: string
+  stripePaymentIntentId: string
   apiKey: string
   createdAt: string
 }
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as import('stripe').Stripe.Checkout.Session
 
-    if (session.mode === 'subscription' && session.customer_email) {
+    if (session.mode === 'payment' && session.customer_email) {
       const customers = loadDb()
       const existing = customers.find((c) => c.email === session.customer_email)
 
@@ -67,14 +67,14 @@ export async function POST(req: NextRequest) {
         customers.push({
           email: session.customer_email,
           stripeCustomerId: String(session.customer),
-          stripeSubscriptionId: String(session.subscription),
+          stripePaymentIntentId: String(session.payment_intent),
           apiKey,
           createdAt: new Date().toISOString(),
         })
         saveDb(customers)
 
         // TODO: send API key to customer via email (integrate email provider)
-        console.log(`New Pro subscriber: ${session.customer_email}, API key: ${apiKey}`)
+        console.log(`New Pro customer: ${session.customer_email}, API key: ${apiKey}`)
       }
     }
   }
