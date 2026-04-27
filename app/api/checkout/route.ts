@@ -34,10 +34,18 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.redirect(session.url!)
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Stripe checkout error:', err)
+    const errObj = err as Record<string, unknown>
     return NextResponse.json(
-      { error: 'Checkout failed', message: String(err) },
+      {
+        error: 'Checkout failed',
+        message: String(err),
+        type: errObj?.type,
+        code: errObj?.code,
+        statusCode: errObj?.statusCode,
+        keyPrefix: STRIPE_SECRET_KEY ? STRIPE_SECRET_KEY.substring(0, 8) : 'MISSING',
+      },
       { status: 500 }
     )
   }
