@@ -21,7 +21,11 @@ export async function GET(req: NextRequest) {
 
   // Dynamic import so the module only loads when Stripe is configured
   const Stripe = (await import('stripe')).default
-  const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2026-03-25.dahlia' as const })
+  // Use Node.js native https client to avoid Next.js fetch patching interference
+  const stripe = new Stripe(STRIPE_SECRET_KEY, {
+    apiVersion: '2026-03-25.dahlia' as const,
+    httpClient: Stripe.createNodeHttpClient(),
+  })
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -37,14 +41,13 @@ export async function GET(req: NextRequest) {
   } catch (err: unknown) {
     console.error('Stripe checkout error:', err)
     const errObj = err as Record<string, unknown>
+    const isConnectionError = errObj?.type === 'StripeConnectionError'
     return NextResponse.json(
       {
-        error: 'Checkout failed',
-        message: String(err),
-        type: errObj?.type,
-        code: errObj?.code,
-        statusCode: errObj?.statusCode,
-        keyPrefix: STRIPE_SECRET_KEY ? STRIPE_SECRET_KEY.substring(0, 8) : 'MISSING',
+        error: isConnectionError ? 'Stripe connection failed' : 'Checkout failed',
+        message: isConnectionError
+          ? 'Could not connect to Stripe. Please try again.'
+          : String(err),
       },
       { status: 500 }
     )
