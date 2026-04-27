@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         error: 'Rate limit exceeded',
-        message: `Free tier allows 10 requests per day. Resets in ${Math.ceil(rl.retryAfterMs / 3600000)}h. Upgrade to Pro for unlimited requests: https://ogpix.app/pricing`,
+        message: `Free tier allows 10 requests per day. Resets in ${Math.ceil(rl.retryAfterMs / 3600000)}h. Upgrade to Pro for unlimited requests: ${process.env.NEXT_PUBLIC_APP_URL ?? 'https://ogpix-delta.vercel.app'}/pricing`,
         retryAfter: retryAfterSec,
       },
       {

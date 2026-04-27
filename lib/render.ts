@@ -11,10 +11,10 @@ import { EventTemplate } from './templates/event'
 import { GitHubCardTemplate } from './templates/github-card'
 import { GenericTemplate } from './templates/generic'
 
-// Load Inter font from local files (avoids runtime network fetch failures on Vercel)
 function loadInterFont() {
-  const regular = readFileSync(join(process.cwd(), 'assets/fonts/Inter-Regular.woff'))
-  const bold = readFileSync(join(process.cwd(), 'assets/fonts/Inter-Bold.woff'))
+  const fontDir = join(process.cwd(), 'node_modules/@fontsource/inter/files')
+  const regular = readFileSync(join(fontDir, 'inter-latin-400-normal.woff'))
+  const bold = readFileSync(join(fontDir, 'inter-latin-700-normal.woff'))
   return [
     { name: 'Inter', data: regular.buffer.slice(regular.byteOffset, regular.byteOffset + regular.byteLength), weight: 400 as const, style: 'normal' as const },
     { name: 'Inter', data: bold.buffer.slice(bold.byteOffset, bold.byteOffset + bold.byteLength), weight: 700 as const, style: 'normal' as const },

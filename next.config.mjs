@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // sharp requires native binaries — exclude from webpack bundling so it uses the platform binary
+  experimental: {
+    outputFileTracingIncludes: {
+      '/api/og': ['./node_modules/@fontsource/inter/files/inter-latin-400-normal.woff', './node_modules/@fontsource/inter/files/inter-latin-700-normal.woff'],
+    },
+  },
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.externals = [...(config.externals ?? []), 'sharp']
