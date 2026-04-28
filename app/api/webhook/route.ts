@@ -32,8 +32,8 @@ function saveDb(customers: Customer[]) {
   writeFileSync(DB_PATH, JSON.stringify(customers, null, 2))
 }
 
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY
-const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY?.trim()
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET?.trim()
 
 export async function POST(req: NextRequest) {
   if (!STRIPE_SECRET_KEY || !STRIPE_WEBHOOK_SECRET) {
